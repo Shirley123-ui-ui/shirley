@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完善版：电场与高斯定理3D演示（增加球壳和圆柱壳）</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0c2461, #1e3799);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+        #container { display: flex; height: 100vh; }
+        #sidebar {
+            width: 380px;
+            background: rgba(25, 42, 86, 0.95);
+            padding: 25px;
+            overflow-y: auto;
+            border-right: 3px solid #3498db;
+        }
+        #title {
+            color: #3498db;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #2980b9;
+            text-align: center;
+        }
+        #subtitle {
+            text-align: center;
+            color: #bdc3c7;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+        }
+        .section {
+            background: rgba(41, 128, 185, 0.15);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+        }
+        .section-title {
+            color: #2ecc71;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-title::before {
+            content: '▶';
+            margin-right: 10px;
+            font-size: 0.8em;
+        }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: #2c3e50;
+            color: white;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button.primary { background: linear-gradient(135deg, #3498db, #2980b9); font-weight: bold; }
+        button.secondary { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .control-group { margin-bottom: 15px; }
+        .control-label {
+            display: block;
+            color: #ecf0f1;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .charge-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            background: #34495e;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        /* 正电荷滑块样式 */
+        input[type="range"].positive-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: #e74c3c; /* 红色代表正电荷 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+        }
+        /* 负电荷滑块样式 */
+        input[type="range"].negative-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: #3498db; /* 蓝色代表负电荷 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.8);
+        }
+        /* 零电荷滑块样式 */
+        input[type="range"].zero-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: #95a5a6; /* 灰色代表零电荷 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(149, 165, 166, 0.8);
+        }
+        .value-display {
+            min-width: 80px;
+            background: rgba(52, 152, 219, 0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        .pos-value { color: #e74c3c; } /* 正值显示红色 */
+        .neg-value { color: #3498db; } /* 负值显示蓝色 */
+        .zero-value { color: #95a5a6; } /* 零值显示灰色 */
+        #visualization { flex: 1; position: relative; overflow: hidden; }
+        #canvas-container { width: 100%; height: 100%; }
+        .data-panel {
+            background: rgba(44, 62, 80, 0.9);
+            border-radius: 10px;
+            padding: 18px;
+            margin-top: 20px;
+            border: 2px solid #2ecc71;
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .data-label { color: #bdc3c7; }
+        .data-value {
+            color: #f1c40f;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        .gauss-proof {
+            font-family: 'Cambria Math', serif;
+            font-size: 1em;
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(231, 76, 60, 0.1);
+            border-radius: 5px;
+            border-left: 3px solid #e74c3c;
+        }
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+            font-size: 0.85em;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+            color: #3498db;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            z-index: 50;
+        }
+        .warning {
+            color: #ff9800;
+            font-size: 0.85em;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #ff9800;
+        }
+        .info {
+            color: #4CAF50;
+            font-size: 0.85em;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+        .special-info {
+            color: #9b59b6;
+            font-size: 0.85em;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(155, 89, 182, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #9b59b6;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <h1 id="title">⚡ 完善版：电场与高斯定理3D演示</h1>
+            <div id="subtitle">增加带电球壳和带电圆柱壳模块</div>
+
+            <div class="section">
+                <h2 class="section-title">🔌 选择带电体类型</h2>
+                <select id="chargeType">
+                    <option value="point">点电荷</option>
+                    <option value="sphere">均匀带电球体</option>
+                    <option value="sphereShell">带电球壳</option>
+                    <option value="cylinder">无限长带电圆柱体</option>
+                    <option value="cylinderShell">带电圆柱壳</option>
+                    <option value="plane">无限大带电平面</option>
+                </select>
+                <button class="primary" id="resetView">🔄 重置视图</button>
+                <button class="secondary" id="toggleFieldLines">电场线: <span id="fieldLineStatus">显示</span></button>
+                <button class="secondary" id="toggleGaussian">高斯面: <span id="gaussianStatus">显示</span></button>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">🎚️ 电荷参数调节 (可正可负)</h2>
+
+                <div class="control-group" id="pointSphereControls">
+                    <div class="control-label">
+                        <span class="charge-indicator" id="QIndicator" style="background:#e74c3c"></span>
+                        电荷量 Q (×10⁻⁹ C)
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="QSlider" class="positive-range" min="-3" max="3" step="0.1" value="1">
+                        <span class="value-display">
+                            <span id="QValue" class="pos-value">+1.0</span>
+                        </span>
+                    </div>
+                    <div class="control-group" id="sphereRadiusControl">
+                        <div class="control-label" id="radiusLabel">球体半径 R (m)</div>
+                        <div class="slider-container">
+                            <input type="range" id="RSlider" min="0.3" max="2" step="0.1" value="1">
+                            <span class="value-display" id="RValue">1.0</span>
+                        </div>
+                    </div>
+                    <div class="control-label">高斯面半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="gaussSphereSlider" min="0.1" max="4" step="0.1" value="2">
+                        <span class="value-display" id="gaussSphereValue">2.0</span>
+                    </div>
+                </div>
+
+                <div class="control-group" id="sphereShellControls" style="display:none;">
+                    <div class="control-label">
+                        <span class="charge-indicator" id="QShellIndicator" style="background:#e74c3c"></span>
+                        球壳电荷量 Q (×10⁻⁹ C)
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="QShellSlider" class="positive-range" min="-3" max="3" step="0.1" value="1">
+                        <span class="value-display">
+                            <span id="QShellValue" class="pos-value">+1.0</span>
+                        </span>
+                    </div>
+                    <div class="control-label">球壳半径 R (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="sphereShellRSlider" min="0.3" max="2" step="0.1" value="1">
+                        <span class="value-display" id="sphereShellRValue">1.0</span>
+                    </div>
+                    <div class="control-label">高斯面半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="gaussSphereShellSlider" min="0.1" max="4" step="0.1" value="2">
+                        <span class="value-display" id="gaussSphereShellValue">2.0</span>
+                    </div>
+                    <div class="special-info">
+                        ⚡ 电荷只分布在球壳表面<br>
+                        📊 球壳内部电场为零，高斯面在内部时电通量为零
+                    </div>
+                </div>
+
+                <div class="control-group" id="cylinderControls" style="display:none;">
+                    <div class="control-label">
+                        <span class="charge-indicator" id="lambdaIndicator" style="background:#e74c3c"></span>
+                        线电荷密度 λ (×10⁻⁹ C/m)
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="lambdaSlider" class="positive-range" min="-2" max="2" step="0.1" value="1">
+                        <span class="value-display">
+                            <span id="lambdaValue" class="pos-value">+1.0</span>
+                        </span>
+                    </div>
+                    <div class="control-label">圆柱半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="cylinderRSlider" min="0.2" max="1.5" step="0.1" value="0.5">
+                        <span class="value-display" id="cylinderRValue">0.5</span>
+                    </div>
+                    <div class="control-label">高斯面半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="gaussCylinderSlider" min="0.1" max="3" step="0.1" value="1.5">
+                        <span class="value-display" id="gaussCylinderValue">1.5</span>
+                    </div>
+                </div>
+
+                <div class="control-group" id="cylinderShellControls" style="display:none;">
+                    <div class="control-label">
+                        <span class="charge-indicator" id="lambdaShellIndicator" style="background:#e74c3c"></span>
+                        圆柱壳线电荷密度 λ (×10⁻⁹ C/m)
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="lambdaShellSlider" class="positive-range" min="-2" max="2" step="0.1" value="1">
+                        <span class="value-display">
+                            <span id="lambdaShellValue" class="pos-value">+1.0</span>
+                        </span>
+                    </div>
+                    <div class="control-label">圆柱壳半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="cylinderShellRSlider" min="0.2" max="1.5" step="0.1" value="0.5">
+                        <span class="value-display" id="cylinderShellRValue">0.5</span>
+                    </div>
+                    <div class="control-label">高斯面半径 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="gaussCylinderShellSlider" min="0.1" max="3" step="0.1" value="1.5">
+                        <span class="value-display" id="gaussCylinderShellValue">1.5</span>
+                    </div>
+                    <div class="special-info">
+                        ⚡ 电荷只分布在圆柱壳表面<br>
+                        📊 圆柱壳内部电场为零，高斯面在内部时电通量为零
+                    </div>
+                </div>
+
+                <div class="control-group" id="planeControls" style="display:none;">
+                    <div class="control-label">
+                        <span class="charge-indicator" id="sigmaIndicator" style="background:#e74c3c"></span>
+                        面电荷密度 σ (×10⁻⁹ C/m²)
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="sigmaSlider" class="positive-range" min="-2" max="2" step="0.1" value="1">
+                        <span class="value-display">
+                            <span id="sigmaValue" class="pos-value">+1.0</span>
+                        </span>
+                    </div>
+                    <div class="control-label">平面尺寸 (m)</div>
+                    <div class="slider-container">
+                        <input type="range" id="planeSizeSlider" min="2" max="8" step="0.5" value="4">
+                        <span class="value-display" id="planeSizeValue">4.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="data-panel">
+                <h2 class="section-title">📊 高斯定理验证</h2>
+                <div id="fluxStatus" class="info" style="display:none;">
+                    ⚡ 高斯面位于带电体内部，从外部视角可见内部高斯面
+                </div>
+                <div id="fieldInfo" class="info" style="display:none;">
+                    📊 内部电场线密度随半径变化，体现真实电场分布
+                </div>
+                <div id="shellInfo" class="special-info" style="display:none;">
+                    ⚡ 带电壳层：电荷只分布在表面，内部电场为零
+                </div>
+                <div class="data-row">
+                    <span class="data-label">∮<sub>S</sub> <b>E</b> · d<b>S</b> :</span>
+                    <span class="data-value" id="fluxValue">0</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Q_enc / ε₀ :</span>
+                    <span class="data-value" id="theoryValue">0</span>
+                </div>
+                <div id="gaussProofDisplay" class="gauss-proof">
+                    公式将在此显示
+                </div>
+                <div id="fieldDistribution" class="info" style="display:none; margin-top:10px;">
+                    球内: E ∝ r，球外: E ∝ 1/r²<br>
+                    球壳内: E = 0，球壳外: E ∝ 1/r²<br>
+                    柱内: E ∝ r，柱外: E ∝ 1/r<br>
+                    圆柱壳内: E = 0，圆柱壳外: E ∝ 1/r
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#e74c3c"></div>
+                    <span>正电荷</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#3498db"></div>
+                    <span>负电荷</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#f1c40f"></div>
+                    <span>正电场线</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#9b59b6"></div>
+                    <span>负电场线</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#ffffff"></div>
+                    <span>负电场线箭头</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#00ff00"></div>
+                    <span>外部高斯面</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#ffff00"></div>
+                    <span>内部高斯面</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#ff6b6b"></div>
+                    <span>带电壳层表面</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="visualization">
+            <div id="canvas-container"></div>
+            <div id="loading">正在初始化3D场景...</div>
+            <div id="instructions">🖱️ 鼠标操作：左键旋转 · 右键平移 · 滚轮缩放</div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 物理常量 ==========
+        const EPSILON0 = 8.854187817e-12;
+
+        // ========== 全局变量 ==========
+        let scene, camera, renderer, controls;
+        let chargeObject = null, gaussianSurface = null;
+        let fieldLineTubes = [];
+        let fieldLineArrows = []; // 存储电场线方向箭头
+        let currentChargeType = 'point';
+        let showGaussian = true, showFieldLines = true;
+        let params = {
+            pointSphere: { Q: 1e-9, R: 1.0, gaussR: 2.0 },
+            sphereShell: { Q: 1e-9, R: 1.0, gaussR: 2.0 },
+            cylinder: { lambda: 1e-9, R: 0.5, gaussR: 1.5 },
+            cylinderShell: { lambda: 1e-9, R: 0.5, gaussR: 1.5 },
+            plane: { sigma: 1e-9, size: 4.0, gaussHeight: 2.0 }
+        };
+
+        // ========== 辅助函数：更新滑块颜色和显示 ==========
+        function updateSliderStyle(sliderId, value, indicatorId) {
+            const slider = document.getElementById(sliderId);
+            const indicator = document.getElementById(indicatorId);
+            
+            if (Math.abs(value) < 0.05) { // 接近零
+                slider.className = 'zero-range';
+                if(indicator) indicator.style.backgroundColor = '#95a5a6';
+            } else if (value > 0) { // 正值
+                slider.className = 'positive-range';
+                if(indicator) indicator.style.backgroundColor = '#e74c3c';
+            } else { // 负值
+                slider.className = 'negative-range';
+                if(indicator) indicator.style.backgroundColor = '#3498db';
+            }
+        }
+
+        // ========== 辅助函数：更新数值显示 ==========
+        function updateValueDisplay(elementId, value, unit = '') {
+            const element = document.getElementById(elementId);
+            const absValue = Math.abs(value).toFixed(1);
+            
+            if (Math.abs(value) < 0.05) {
+                element.textContent = `0.0${unit}`;
+                element.className = 'zero-value';
+            } else if (value > 0) {
+                element.textContent = `+${absValue}${unit}`;
+                element.className = 'pos-value';
+            } else {
+                element.textContent = `-${absValue}${unit}`;
+                element.className = 'neg-value';
+            }
+        }
+
+        // ========== 物理计算函数 ==========
+        function calculateElectricField(position) {
+            const x = position.x, y = position.y, z = position.z;
+            let field = new THREE.Vector3(0, 0, 0);
+
+            switch(currentChargeType) {
+                case 'point':
+                case 'sphere':
+                    const r = position.length();
+                    const Q = params.pointSphere.Q;
+                    const R = params.pointSphere.R;
+                    if (r === 0) return field;
+                    if (currentChargeType === 'point' || r >= R) {
+                        // 球外或点电荷：E = Q/(4πϵ₀r²)
+                        const magnitude = Math.abs(Q) / (4 * Math.PI * EPSILON0 * r * r);
+                        // 方向：正电荷向外，负电荷向内
+                        const direction = (Q >= 0) ? 1 : -1;
+                        field.copy(position).normalize().multiplyScalar(direction * magnitude);
+                    } else {
+                        // 球内：E = (Qr)/(4πϵ₀R³) ∝ r
+                        const magnitude = Math.abs(Q * r) / (4 * Math.PI * EPSILON0 * R * R * R);
+                        const direction = (Q >= 0) ? 1 : -1;
+                        field.copy(position).normalize().multiplyScalar(direction * magnitude);
+                    }
+                    break;
+
+                case 'sphereShell':
+                    const rShell = position.length();
+                    const QShell = params.sphereShell.Q;
+                    const RShell = params.sphereShell.R;
+                    if (rShell === 0) return field;
+                    if (rShell < RShell) {
+                        // 球壳内部：电场为零
+                        field.set(0, 0, 0);
+                    } else {
+                        // 球壳外部：E = Q/(4πϵ₀r²) 与点电荷相同
+                        const magnitude = Math.abs(QShell) / (4 * Math.PI * EPSILON0 * rShell * rShell);
+                        const direction = (QShell >= 0) ? 1 : -1;
+                        field.copy(position).normalize().multiplyScalar(direction * magnitude);
+                    }
+                    break;
+
+                case 'cylinder':
+                    const rho = Math.sqrt(x * x + z * z);
+                    const lambda = params.cylinder.lambda;
+                    const cylR = params.cylinder.R;
+                    if (rho === 0) return field;
+                    if (rho < cylR) {
+                        // 圆柱体内：E = (λr)/(2πϵ₀R²) ∝ r
+                        const magnitude = Math.abs(lambda * rho) / (2 * Math.PI * EPSILON0 * cylR * cylR);
+                        const direction = (lambda >= 0) ? 1 : -1;
+                        field.set(x / rho, 0, z / rho).multiplyScalar(direction * magnitude);
+                    } else {
+                        // 圆柱体外：E = λ/(2πϵ₀ρ) ∝ 1/r
+                        const magnitude = Math.abs(lambda) / (2 * Math.PI * EPSILON0 * rho);
+                        const direction = (lambda >= 0) ? 1 : -1;
+                        field.set(x / rho, 0, z / rho).multiplyScalar(direction * magnitude);
+                    }
+                    break;
+
+                case 'cylinderShell':
+                    const rhoShell = Math.sqrt(x * x + z * z);
+                    const lambdaShell = params.cylinderShell.lambda;
+                    const cylRShell = params.cylinderShell.R;
+                    if (rhoShell === 0) return field;
+                    if (rhoShell < cylRShell) {
+                        // 圆柱壳内部：电场为零
+                        field.set(0, 0, 0);
+                    } else {
+                        // 圆柱壳外部：E = λ/(2πϵ₀ρ) ∝ 1/r
+                        const magnitude = Math.abs(lambdaShell) / (2 * Math.PI * EPSILON0 * rhoShell);
+                        const direction = (lambdaShell >= 0) ? 1 : -1;
+                        field.set(x / rhoShell, 0, z / rhoShell).multiplyScalar(direction * magnitude);
+                    }
+                    break;
+
+                case 'plane':
+                    const sigma = params.plane.sigma;
+                    const magnitude = Math.abs(sigma) / (2 * EPSILON0);
+                    // 正电荷：平面上方向外，平面下方向内
+                    // 负电荷：平面上方向内，平面下方向外
+                    const direction = (sigma >= 0) ? 1 : -1;
+                    const fieldY = (y >= 0) ? direction * magnitude : -direction * magnitude;
+                    field.set(0, fieldY, 0);
+                    break;
+            }
+            return field;
+        }
+
+        // ========== 3D场景初始化 ==========
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            const container = document.getElementById('canvas-container');
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(6, 4, 6);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 15, 10);
+            scene.add(directionalLight);
+
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+            const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+            scene.add(gridHelper);
+
+            document.getElementById('loading').style.display = 'none';
+            updateChargeObject();
+            updateFieldLines();
+            updateGaussianSurface();
+            animate();
+        }
+
+        // ========== 3D对象创建 ==========
+        function updateChargeObject() {
+            if (chargeObject) scene.remove(chargeObject);
+
+            let chargeValue = 0;
+            let objectColor = 0xFFFFFF;
+            
+            // 确定电荷值和颜色
+            switch(currentChargeType) {
+                case 'point':
+                case 'sphere':
+                    chargeValue = params.pointSphere.Q;
+                    objectColor = (chargeValue >= 0) ? 0xe74c3c : 0x3498db; // 红色正电荷，蓝色负电荷
+                    break;
+                case 'sphereShell':
+                    chargeValue = params.sphereShell.Q;
+                    objectColor = (chargeValue >= 0) ? 0xe74c3c : 0x3498db; // 红色正电荷，蓝色负电荷
+                    break;
+                case 'cylinder':
+                    chargeValue = params.cylinder.lambda;
+                    objectColor = (chargeValue >= 0) ? 0xe67e22 : 0x3498db; // 橙色正电荷，蓝色负电荷
+                    break;
+                case 'cylinderShell':
+                    chargeValue = params.cylinderShell.lambda;
+                    objectColor = (chargeValue >= 0) ? 0xe67e22 : 0x3498db; // 橙色正电荷，蓝色负电荷
+                    break;
+                case 'plane':
+                    chargeValue = params.plane.sigma;
+                    objectColor = (chargeValue >= 0) ? 0x9b59b6 : 0x3498db; // 紫色正电荷，蓝色负电荷
+                    break;
+            }
+
+            // 创建带电体 - 对于壳层使用不同的显示方式
+            switch(currentChargeType) {
+                case 'point':
+                    const pointGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+                    const pointMaterial = new THREE.MeshPhongMaterial({
+                        color: objectColor,
+                        emissive: objectColor,
+                        emissiveIntensity: 0.3,
+                        shininess: 100
+                    });
+                    chargeObject = new THREE.Mesh(pointGeometry, pointMaterial);
+                    break;
+                case 'sphere':
+                    const sphereGeometry = new THREE.SphereGeometry(params.pointSphere.R, 32, 32);
+                    const sphereMaterial = new THREE.MeshPhongMaterial({
+                        color: objectColor,
+                        transparent: true,
+                        opacity: 0.6, // 降低透明度，让内部高斯面更可见
+                        side: THREE.DoubleSide // 双面渲染
+                    });
+                    chargeObject = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                    break;
+                case 'sphereShell':
+                    // 球壳：用线框球体表示，内部是空的
+                    const sphereShellGeometry = new THREE.SphereGeometry(params.sphereShell.R, 32, 32);
+                    const sphereShellMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xff6b6b, // 壳层使用特殊颜色
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.8,
+                        side: THREE.DoubleSide
+                    });
+                    chargeObject = new THREE.Mesh(sphereShellGeometry, sphereShellMaterial);
+                    break;
+                case 'cylinder':
+                    const cylinderGeometry = new THREE.CylinderGeometry(
+                        params.cylinder.R, params.cylinder.R, 8, 32
+                    );
+                    const cylinderMaterial = new THREE.MeshPhongMaterial({
+                        color: objectColor,
+                        transparent: true,
+                        opacity: 0.6, // 降低透明度，让内部高斯面更可见
+                        side: THREE.DoubleSide // 双面渲染
+                    });
+                    chargeObject = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                    break;
+                case 'cylinderShell':
+                    // 圆柱壳：用线框圆柱体表示，内部是空的
+                    const cylinderShellGeometry = new THREE.CylinderGeometry(
+                        params.cylinderShell.R, params.cylinderShell.R, 8, 32
+                    );
+                    const cylinderShellMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xff6b6b, // 壳层使用特殊颜色
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.8,
+                        side: THREE.DoubleSide
+                    });
+                    chargeObject = new THREE.Mesh(cylinderShellGeometry, cylinderShellMaterial);
+                    break;
+                case 'plane':
+                    const planeGeometry = new THREE.PlaneGeometry(params.plane.size, params.plane.size);
+                    const planeMaterial = new THREE.MeshPhongMaterial({
+                        color: objectColor,
+                        transparent: true,
+                        opacity: 0.6,
+                        side: THREE.DoubleSide
+                    });
+                    chargeObject = new THREE.Mesh(planeGeometry, planeMaterial);
+                    chargeObject.rotation.x = Math.PI / 2;
+                    break;
+            }
+            
+            if (chargeObject) {
+                chargeObject.castShadow = true;
+                scene.add(chargeObject);
+            }
+            updatePhysicsData();
+        }
+
+        // ========== 电场线系统 ==========
+        function updateFieldLines() {
+            // 清除旧的电场线和箭头
+            fieldLineTubes.forEach(tube => scene.remove(tube));
+            fieldLineTubes = [];
+            fieldLineArrows.forEach(arrow => scene.remove(arrow));
+            fieldLineArrows = [];
+            
+            if (!showFieldLines) return;
+
+            // 检查电荷是否接近零
+            let chargeNearZero = false;
+            switch(currentChargeType) {
+                case 'point':
+                case 'sphere':
+                    chargeNearZero = Math.abs(params.pointSphere.Q) < 0.05e-9;
+                    break;
+                case 'sphereShell':
+                    chargeNearZero = Math.abs(params.sphereShell.Q) < 0.05e-9;
+                    break;
+                case 'cylinder':
+                    chargeNearZero = Math.abs(params.cylinder.lambda) < 0.05e-9;
+                    break;
+                case 'cylinderShell':
+                    chargeNearZero = Math.abs(params.cylinderShell.lambda) < 0.05e-9;
+                    break;
+                case 'plane':
+                    chargeNearZero = Math.abs(params.plane.sigma) < 0.05e-9;
+                    break;
+            }
+            
+            if (chargeNearZero) return;
+
+            let lines = [];
+            switch(currentChargeType) {
+                case 'point':
+                    const qFactor = Math.abs(params.pointSphere.Q / 1e-9);
+                    const totalLinesPoint = Math.max(12, Math.round(20 * qFactor));
+                    lines = generatePointChargeFieldLines(totalLinesPoint, 4);
+                    break;
+                case 'sphere':
+                    const qFactorSphere = Math.abs(params.pointSphere.Q / 1e-9);
+                    const totalLinesSphere = Math.max(16, Math.round(24 * qFactorSphere));
+                    lines = generateSphereFieldLinesWithDensity(totalLinesSphere, 4);
+                    break;
+                case 'sphereShell':
+                    const qFactorShell = Math.abs(params.sphereShell.Q / 1e-9);
+                    const totalLinesShell = Math.max(16, Math.round(24 * qFactorShell));
+                    // 球壳：只在外部生成电场线
+                    lines = generateSphereShellFieldLines(totalLinesShell, 4);
+                    break;
+                case 'cylinder':
+                    const lambdaFactor = Math.abs(params.cylinder.lambda / 1e-9);
+                    const totalLinesCylinder = Math.max(8, Math.round(12 * lambdaFactor));
+                    lines = generateCylinderFieldLinesWithDensity(totalLinesCylinder, 3);
+                    break;
+                case 'cylinderShell':
+                    const lambdaShellFactor = Math.abs(params.cylinderShell.lambda / 1e-9);
+                    const totalLinesCylinderShell = Math.max(8, Math.round(12 * lambdaShellFactor));
+                    // 圆柱壳：只在外部生成电场线
+                    lines = generateCylinderShellFieldLines(totalLinesCylinderShell, 3);
+                    break;
+                case 'plane':
+                    const sigmaFactor = Math.abs(params.plane.sigma / 1e-9);
+                    const baseSpacing = 1.0;
+                    const lineSpacing = baseSpacing / Math.sqrt(sigmaFactor);
+                    lines = generatePlanarFieldLinesBySpacing(lineSpacing, 3);
+                    break;
+            }
+
+            // 根据电荷值确定基础颜色
+            const baseColor = (getCurrentChargeValue() >= 0) ? 0xf1c40f : 0x9b59b6;
+            
+            lines.forEach((points, index) => {
+                // 根据电场强度调整颜色饱和度，体现电场强度变化
+                const avgR = points.length > 0 ? 
+                    points.reduce((sum, p) => sum + p.length(), 0) / points.length : 0;
+                let intensity = 1.0;
+                
+                if (currentChargeType === 'sphere' && params.pointSphere.R > 0) {
+                    // 球体：内部电场强度随r增加，外部随r²减小
+                    if (avgR < params.pointSphere.R) {
+                        // 内部：颜色变浅表示电场较弱
+                        intensity = 0.6 + 0.4 * (avgR / params.pointSphere.R);
+                    } else {
+                        // 外部：颜色变深表示电场较强
+                        intensity = 1.0 - 0.3 * (avgR - params.pointSphere.R) / (4 - params.pointSphere.R);
+                    }
+                } else if (currentChargeType === 'sphereShell' && params.sphereShell.R > 0) {
+                    // 球壳：内部没有电场线，外部与球体类似
+                    if (avgR < params.sphereShell.R) {
+                        // 内部不应该有电场线，但以防万一
+                        intensity = 0.3;
+                    } else {
+                        intensity = 1.0 - 0.3 * (avgR - params.sphereShell.R) / (4 - params.sphereShell.R);
+                    }
+                } else if (currentChargeType === 'cylinder' && params.cylinder.R > 0) {
+                    // 圆柱体：内部电场强度随r增加，外部随r减小
+                    const avgRho = points.length > 0 ? 
+                        Math.sqrt(points[0].x * points[0].x + points[0].z * points[0].z) : 0;
+                    if (avgRho < params.cylinder.R) {
+                        intensity = 0.6 + 0.4 * (avgRho / params.cylinder.R);
+                    } else {
+                        intensity = 1.0 - 0.3 * (avgRho - params.cylinder.R) / (3 - params.cylinder.R);
+                    }
+                } else if (currentChargeType === 'cylinderShell' && params.cylinderShell.R > 0) {
+                    // 圆柱壳：内部没有电场线，外部与圆柱体类似
+                    const avgRho = points.length > 0 ? 
+                        Math.sqrt(points[0].x * points[0].x + points[0].z * points[0].z) : 0;
+                    if (avgRho < params.cylinderShell.R) {
+                        // 内部不应该有电场线，但以防万一
+                        intensity = 0.3;
+                    } else {
+                        intensity = 1.0 - 0.3 * (avgRho - params.cylinderShell.R) / (3 - params.cylinderShell.R);
+                    }
+                }
+                
+                // 创建电场线管
+                const tube = createFieldLineTube(points, baseColor, intensity);
+                scene.add(tube);
+                fieldLineTubes.push(tube);
+                
+                // 在电场线末端添加方向箭头
+                if (points.length >= 2) {
+                    const lastPoint = points[points.length - 1];
+                    const secondLastPoint = points[points.length - 2];
+                    
+                    // 计算方向
+                    const direction = new THREE.Vector3()
+                        .subVectors(lastPoint, secondLastPoint)
+                        .normalize();
+                    
+                    // 根据电荷正负调整箭头方向
+                    const chargeValue = getCurrentChargeValue();
+                    if (chargeValue < 0) {
+                        direction.multiplyScalar(-1);
+                    }
+                    
+                    // 优化：负电荷使用白色箭头，正电荷使用与电场线相同的颜色
+                    const arrowColor = (chargeValue >= 0) ? 0xf1c40f : 0xffffff;
+                    const arrow = createDirectionArrow(lastPoint, direction, arrowColor);
+                    scene.add(arrow);
+                    fieldLineArrows.push(arrow);
+                }
+            });
+        }
+        
+        // 获取当前电荷值
+        function getCurrentChargeValue() {
+            switch(currentChargeType) {
+                case 'point':
+                case 'sphere': return params.pointSphere.Q;
+                case 'sphereShell': return params.sphereShell.Q;
+                case 'cylinder': return params.cylinder.lambda;
+                case 'cylinderShell': return params.cylinderShell.lambda;
+                case 'plane': return params.plane.sigma;
+                default: return 0;
+            }
+        }
+
+        // 点电荷电场线生成
+        function generatePointChargeFieldLines(numLines, maxR) {
+            const lines = [];
+            const startR = 0.1;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < numLines; i++) {
+                const y = 1 - (i / (numLines - 1)) * 2;
+                const radius = Math.sqrt(1 - y * y);
+                const theta = goldenAngle * i;
+                const x = Math.cos(theta) * radius;
+                const z = Math.sin(theta) * radius;
+
+                const direction = new THREE.Vector3(x, y, z).normalize();
+                const points = [];
+                // 生成从内到外的电场线，间距逐渐增大（电场强度减小）
+                for (let r = startR; r <= maxR; r += 0.05 * Math.sqrt(r)) {
+                    points.push(direction.clone().multiplyScalar(r));
+                }
+                if (points.length > 1) lines.push(points);
+            }
+            return lines;
+        }
+
+        // 球体电场线生成（考虑内部电场密度）
+        function generateSphereFieldLinesWithDensity(numLines, maxR) {
+            const lines = [];
+            const R = params.pointSphere.R;
+            const startR = 0.05; // 从靠近中心开始
+            
+            // 内部和外部电场线密度不同
+            const innerLines = Math.floor(numLines * 0.3); // 30%的电场线从内部开始
+            const outerLines = numLines - innerLines; // 70%的电场线从表面开始
+            
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            // 生成内部电场线（从中心附近开始）
+            for (let i = 0; i < innerLines; i++) {
+                const y = 1 - (i / (innerLines - 1)) * 2;
+                const radius = Math.sqrt(1 - y * y);
+                const theta = goldenAngle * i;
+                const x = Math.cos(theta) * radius;
+                const z = Math.sin(theta) * radius;
+
+                const direction = new THREE.Vector3(x, y, z).normalize();
+                const points = [];
+                
+                // 内部电场线：从中心到表面再到外部
+                for (let r = startR; r <= maxR; r += 0.05) {
+                    if (r < R) {
+                        // 内部：间距较小，体现电场线密度
+                        points.push(direction.clone().multiplyScalar(r));
+                    } else {
+                        // 外部：间距逐渐增大
+                        points.push(direction.clone().multiplyScalar(r));
+                    }
+                }
+                if (points.length > 1) lines.push(points);
+            }
+
+            // 生成外部电场线（从表面开始）
+            for (let i = 0; i < outerLines; i++) {
+                const y = 1 - (i / (outerLines - 1)) * 2;
+                const radius = Math.sqrt(1 - y * y);
+                const theta = goldenAngle * (i + innerLines);
+                const x = Math.cos(theta) * radius;
+                const z = Math.sin(theta) * radius;
+
+                const direction = new THREE.Vector3(x, y, z).normalize();
+                const points = [];
+                
+                // 从表面开始向外
+                for (let r = R; r <= maxR; r += 0.1 * Math.sqrt(r/R)) {
+                    points.push(direction.clone().multiplyScalar(r));
+                }
+                if (points.length > 1) lines.push(points);
+            }
+
+            return lines;
+        }
+
+        // 球壳电场线生成（只在外部生成电场线）
+        function generateSphereShellFieldLines(numLines, maxR) {
+            const lines = [];
+            const R = params.sphereShell.R;
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < numLines; i++) {
+                const y = 1 - (i / (numLines - 1)) * 2;
+                const radius = Math.sqrt(1 - y * y);
+                const theta = goldenAngle * i;
+                const x = Math.cos(theta) * radius;
+                const z = Math.sin(theta) * radius;
+
+                const direction = new THREE.Vector3(x, y, z).normalize();
+                const points = [];
+                
+                // 球壳：只从表面开始向外生成电场线
+                for (let r = R; r <= maxR; r += 0.1 * Math.sqrt(r/R)) {
+                    points.push(direction.clone().multiplyScalar(r));
+                }
+                if (points.length > 1) lines.push(points);
+            }
+
+            return lines;
+        }
+
+        // 圆柱体电场线生成（考虑内部电场密度）
+        function generateCylinderFieldLinesWithDensity(numLines, maxRho) {
+            const lines = [];
+            const R = params.cylinder.R;
+            const startRho = 0.05; // 从靠近轴线开始
+            
+            // 内部和外部电场线密度不同
+            const innerLines = Math.floor(numLines * 0.4); // 40%的电场线从内部开始
+            const outerLines = numLines - innerLines; // 60%的电场线从表面开始
+
+            // 生成内部电场线（从轴线附近开始）
+            for (let i = 0; i < innerLines; i++) {
+                const phi = (i / innerLines) * 2 * Math.PI;
+                for (let y of [-2, 0, 2]) {
+                    const points = [];
+                    // 从靠近轴线开始到表面再到外部
+                    for (let rho = startRho; rho <= maxRho; rho += 0.05) {
+                        if (rho < R) {
+                            // 内部：间距较小
+                            points.push(new THREE.Vector3(rho * Math.cos(phi), y, rho * Math.sin(phi)));
+                        } else {
+                            // 外部：间距逐渐增大
+                            points.push(new THREE.Vector3(rho * Math.cos(phi), y, rho * Math.sin(phi)));
+                        }
+                    }
+                    if (points.length > 1) lines.push(points);
+                }
+            }
+
+            // 生成外部电场线（从表面开始）
+            for (let i = 0; i < outerLines; i++) {
+                const phi = (i / outerLines) * 2 * Math.PI;
+                for (let y of [-2, 0, 2]) {
+                    const points = [];
+                    // 从表面开始向外
+                    for (let rho = R; rho <= maxRho; rho += 0.08 * Math.sqrt(rho/R)) {
+                        points.push(new THREE.Vector3(rho * Math.cos(phi), y, rho * Math.sin(phi)));
+                    }
+                    if (points.length > 1) lines.push(points);
+                }
+            }
+
+            return lines;
+        }
+
+        // 圆柱壳电场线生成（只在外部生成电场线）
+        function generateCylinderShellFieldLines(numLines, maxRho) {
+            const lines = [];
+            const R = params.cylinderShell.R;
+
+            for (let i = 0; i < numLines; i++) {
+                const phi = (i / numLines) * 2 * Math.PI;
+                for (let y of [-2, 0, 2]) {
+                    const points = [];
+                    // 从表面开始向外
+                    for (let rho = R; rho <= maxRho; rho += 0.08 * Math.sqrt(rho/R)) {
+                        points.push(new THREE.Vector3(rho * Math.cos(phi), y, rho * Math.sin(phi)));
+                    }
+                    if (points.length > 1) lines.push(points);
+                }
+            }
+
+            return lines;
+        }
+
+        function generatePlanarFieldLinesBySpacing(lineSpacing, length) {
+            const lines = [];
+            const halfSize = params.plane.size / 2;
+            const startX = -halfSize + lineSpacing / 2;
+            const startZ = -halfSize + lineSpacing / 2;
+
+            for (let x = startX; x <= halfSize; x += lineSpacing) {
+                for (let z = startZ; z <= halfSize; z += lineSpacing) {
+                    lines.push([new THREE.Vector3(x, 0.1, z), new THREE.Vector3(x, length, z)]);
+                    lines.push([new THREE.Vector3(x, -0.1, z), new THREE.Vector3(x, -length, z)]);
+                }
+            }
+            return lines;
+        }
+
+        // 修改：添加强度参数调整电场线颜色
+        function createFieldLineTube(points, color, intensity = 1.0) {
+            const curve = new THREE.CatmullRomCurve3(points);
+            const tubeGeometry = new THREE.TubeGeometry(curve, points.length * 5, 0.03, 8, false);
+            
+            // 根据强度调整颜色
+            const hsl = new THREE.Color(color).getHSL({});
+            const adjustedColor = new THREE.Color().setHSL(hsl.h, hsl.s * intensity, hsl.l * (0.7 + 0.3 * intensity));
+            
+            const tubeMaterial = new THREE.MeshPhongMaterial({
+                color: adjustedColor,
+                emissive: adjustedColor,
+                emissiveIntensity: 0.2 * intensity,
+                transparent: true,
+                opacity: 0.8 * intensity
+            });
+            return new THREE.Mesh(tubeGeometry, tubeMaterial);
+        }
+        
+        // 创建方向箭头
+        function createDirectionArrow(position, direction, color) {
+            const arrowLength = (color === 0xffffff) ? 0.45 : 0.4;
+            const arrowHeadLength = (color === 0xffffff) ? 0.25 : 0.2;
+            const arrowHeadWidth = (color === 0xffffff) ? 0.15 : 0.12;
+            
+            const arrowHelper = new THREE.ArrowHelper(
+                direction,
+                position,
+                arrowLength,
+                color,
+                arrowHeadLength,
+                arrowHeadWidth
+            );
+            
+            // 为箭头添加发光效果
+            if (arrowHelper.line && arrowHelper.cone) {
+                const glowIntensity = (color === 0xffffff) ? 1.0 : 0.8;
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: glowIntensity
+                });
+                arrowHelper.cone.material = glowMaterial;
+                arrowHelper.line.material = glowMaterial;
+            }
+            
+            return arrowHelper;
+        }
+
+        // ========== 高斯面系统（关键修改：确保内部高斯面从外部可见）==========
+        function updateGaussianSurface() {
+            // 清除旧的高斯面
+            if (gaussianSurface) {
+                scene.remove(gaussianSurface);
+                gaussianSurface = null;
+            }
+            
+            if (!showGaussian) return;
+
+            // 检查高斯面是否在带电体内部
+            const isInside = checkIfGaussianInside();
+            
+            // 关键修改：无论高斯面在内部还是外部，都创建高斯面
+            // 使用更醒目的颜色和线宽，确保可见性
+            const gaussColor = isInside ? 0xffff00 : 0x00ff00; // 内部黄色，外部绿色
+            const baseOpacity = isInside ? 0.9 : 0.7; // 内部更不透明
+            const lineWidth = isInside ? 4 : 2; // 内部线宽更粗
+
+            switch(currentChargeType) {
+                case 'point':
+                case 'sphere':
+                case 'sphereShell':
+                    const gaussR = currentChargeType === 'sphereShell' ? 
+                        params.sphereShell.gaussR : params.pointSphere.gaussR;
+                    const sphereGaussGeometry = new THREE.SphereGeometry(gaussR, 32, 32);
+                    const sphereGaussMaterial = new THREE.MeshBasicMaterial({
+                        color: gaussColor,
+                        wireframe: true,
+                        transparent: true,
+                        opacity: baseOpacity,
+                        wireframeLinewidth: lineWidth,
+                        depthTest: false // 禁用深度测试，确保始终可见
+                    });
+                    gaussianSurface = new THREE.Mesh(sphereGaussGeometry, sphereGaussMaterial);
+                    break;
+                case 'cylinder':
+                case 'cylinderShell':
+                    const gaussRho = currentChargeType === 'cylinderShell' ? 
+                        params.cylinderShell.gaussR : params.cylinder.gaussR;
+                    const cylinderGaussGeometry = new THREE.CylinderGeometry(
+                        gaussRho, gaussRho, 8, 32, 1, true
+                    );
+                    const cylinderGaussMaterial = new THREE.MeshBasicMaterial({
+                        color: gaussColor,
+                        wireframe: true,
+                        transparent: true,
+                        opacity: baseOpacity,
+                        side: THREE.DoubleSide,
+                        wireframeLinewidth: lineWidth,
+                        depthTest: false // 禁用深度测试，确保始终可见
+                    });
+                    gaussianSurface = new THREE.Mesh(cylinderGaussGeometry, cylinderGaussMaterial);
+                    break;
+                case 'plane':
+                    const planeGaussRadius = Math.min(params.plane.size / 3, 2.5);
+                    const planeGaussGeometry = new THREE.CylinderGeometry(
+                        planeGaussRadius, planeGaussRadius, params.plane.gaussHeight, 32, 1, false
+                    );
+                    const planeGaussMaterial = new THREE.MeshBasicMaterial({
+                        color: gaussColor,
+                        wireframe: true,
+                        transparent: true,
+                        opacity: baseOpacity,
+                        side: THREE.DoubleSide,
+                        wireframeLinewidth: lineWidth,
+                        depthTest: false // 禁用深度测试，确保始终可见
+                    });
+                    gaussianSurface = new THREE.Mesh(planeGaussGeometry, planeGaussMaterial);
+                    break;
+            }
+            
+            if (gaussianSurface) {
+                // 设置renderOrder为最高，确保高斯面在最后渲染（在最前面）
+                gaussianSurface.renderOrder = 1000;
+                scene.add(gaussianSurface);
+            }
+        }
+
+        // 检查高斯面是否在带电体内部
+        function checkIfGaussianInside() {
+            switch(currentChargeType) {
+                case 'point':
+                    return params.pointSphere.gaussR < 0.3; // 点电荷近似半径
+                case 'sphere':
+                    return params.pointSphere.gaussR < params.pointSphere.R;
+                case 'sphereShell':
+                    return params.sphereShell.gaussR < params.sphereShell.R;
+                case 'cylinder':
+                    return params.cylinder.gaussR < params.cylinder.R;
+                case 'cylinderShell':
+                    return params.cylinderShell.gaussR < params.cylinderShell.R;
+                case 'plane':
+                    // 平面没有内部的概念，始终返回false
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        // ========== 物理数据与高斯定理验证 ==========
+        function updatePhysicsData() {
+            let flux = 0, enclosedCharge = 0, theoryValue = 0;
+            let formulaText = '';
+            const isInside = checkIfGaussianInside();
+            
+            // 显示/隐藏内部警告和信息
+            const fluxStatus = document.getElementById('fluxStatus');
+            const fieldInfo = document.getElementById('fieldInfo');
+            const shellInfo = document.getElementById('shellInfo');
+            const fieldDistribution = document.getElementById('fieldDistribution');
+            
+            // 显示带电壳层的特殊信息
+            if (currentChargeType === 'sphereShell' || currentChargeType === 'cylinderShell') {
+                shellInfo.style.display = 'block';
+                fieldDistribution.style.display = 'block';
+                fieldInfo.style.display = 'none';
+            } else if (currentChargeType === 'sphere' || currentChargeType === 'cylinder') {
+                fieldInfo.style.display = 'block';
+                fieldDistribution.style.display = 'block';
+                shellInfo.style.display = 'none';
+            } else {
+                fieldInfo.style.display = 'none';
+                fieldDistribution.style.display = 'none';
+                shellInfo.style.display = 'none';
+            }
+            
+            if (isInside && currentChargeType !== 'plane') {
+                fluxStatus.style.display = 'block';
+                let gaussR = 0, R = 0;
+                switch(currentChargeType) {
+                    case 'point':
+                        gaussR = params.pointSphere.gaussR;
+                        R = 0.3; break;
+                    case 'sphere':
+                        gaussR = params.pointSphere.gaussR;
+                        R = params.pointSphere.R; break;
+                    case 'sphereShell':
+                        gaussR = params.sphereShell.gaussR;
+                        R = params.sphereShell.R; break;
+                    case 'cylinder':
+                        gaussR = params.cylinder.gaussR;
+                        R = params.cylinder.R; break;
+                    case 'cylinderShell':
+                        gaussR = params.cylinderShell.gaussR;
+                        R = params.cylinderShell.R; break;
+                }
+                fluxStatus.innerHTML = `⚡ 高斯面位于带电体内部<br>
+                📏 高斯面半径: ${gaussR.toFixed(2)} m<br>
+                📏 带电体半径: ${R.toFixed(2)} m`;
+            } else {
+                fluxStatus.style.display = 'none';
+            }
+
+            switch(currentChargeType) {
+                case 'point':
+                    enclosedCharge = params.pointSphere.Q;
+                    theoryValue = enclosedCharge / EPSILON0;
+                    flux = theoryValue;
+                    if (isInside) {
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q/ε₀ = ${flux.toExponential(3)} N·m²/C (点电荷内部)`;
+                    } else {
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q/ε₀ = ${flux.toExponential(3)} N·m²/C`;
+                    }
+                    break;
+                case 'sphere':
+                    const Q = params.pointSphere.Q;
+                    const gaussR = params.pointSphere.gaussR;
+                    if (gaussR >= params.pointSphere.R) {
+                        enclosedCharge = Q;
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q/ε₀ = ${flux.toExponential(3)} N·m²/C (球外)`;
+                    } else {
+                        enclosedCharge = Q * Math.pow(gaussR / params.pointSphere.R, 3);
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q_enc/ε₀ = (Q·r³/R³)/ε₀ = ${flux.toExponential(3)} N·m²/C (球内)`;
+                    }
+                    break;
+                case 'sphereShell':
+                    const QShell = params.sphereShell.Q;
+                    const gaussRShell = params.sphereShell.gaussR;
+                    if (gaussRShell >= params.sphereShell.R) {
+                        enclosedCharge = QShell;
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q/ε₀ = ${flux.toExponential(3)} N·m²/C (球壳外)`;
+                    } else {
+                        // 球壳内部：高斯面包围的电荷为零
+                        enclosedCharge = 0;
+                        theoryValue = 0;
+                        flux = 0;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = 0 (球壳内无电荷)`;
+                    }
+                    break;
+                case 'cylinder':
+                    const lambda = params.cylinder.lambda;
+                    const length = 8;
+                    const gaussRho = params.cylinder.gaussR;
+                    if (gaussRho >= params.cylinder.R) {
+                        enclosedCharge = lambda * length;
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = λL/ε₀ = ${flux.toExponential(3)} N·m²/C (柱外)`;
+                    } else {
+                        enclosedCharge = lambda * length * Math.pow(gaussRho / params.cylinder.R, 2);
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = Q_enc/ε₀ = (λL·ρ²/R²)/ε₀ = ${flux.toExponential(3)} N·m²/C (柱内)`;
+                    }
+                    break;
+                case 'cylinderShell':
+                    const lambdaShell = params.cylinderShell.lambda;
+                    const lengthShell = 8;
+                    const gaussRhoShell = params.cylinderShell.gaussR;
+                    if (gaussRhoShell >= params.cylinderShell.R) {
+                        enclosedCharge = lambdaShell * lengthShell;
+                        theoryValue = enclosedCharge / EPSILON0;
+                        flux = theoryValue;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = λL/ε₀ = ${flux.toExponential(3)} N·m²/C (圆柱壳外)`;
+                    } else {
+                        // 圆柱壳内部：高斯面包围的电荷为零
+                        enclosedCharge = 0;
+                        theoryValue = 0;
+                        flux = 0;
+                        formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = 0 (圆柱壳内无电荷)`;
+                    }
+                    break;
+                case 'plane':
+                    const sigma = params.plane.sigma;
+                    const gaussRadius = Math.min(params.plane.size / 3, 2.5);
+                    const area = Math.PI * gaussRadius * gaussRadius;
+                    enclosedCharge = sigma * area;
+                    theoryValue = enclosedCharge / EPSILON0;
+                    const E = sigma / (2 * EPSILON0);
+                    flux = 2 * E * area;
+                    formulaText = `∮<sub>S</sub> <b>E</b> · d<b>S</b> = σS/ε₀ = ${flux.toExponential(3)} N·m²/C`;
+                    break;
+            }
+
+            // 更新显示
+            document.getElementById('fluxValue').textContent = flux.toExponential(3) + " N·m²/C";
+            document.getElementById('theoryValue').textContent = theoryValue.toExponential(3) + " N·m²/C";
+            document.getElementById('gaussProofDisplay').innerHTML = formulaText;
+        }
+
+        // ========== 动画循环 ==========
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (gaussianSurface && showGaussian) {
+                gaussianSurface.rotation.y += 0.003;
+            }
+            renderer.render(scene, camera);
+        }
+
+        // ========== 事件监听 ==========
+        function initEventListeners() {
+            document.getElementById('chargeType').addEventListener('change', function(e) {
+                currentChargeType = e.target.value;
+                const isPointSphere = currentChargeType === 'point' || currentChargeType === 'sphere';
+                const isPoint = currentChargeType === 'point';
+                const isSphere = currentChargeType === 'sphere';
+                const isSphereShell = currentChargeType === 'sphereShell';
+                const isCylinder = currentChargeType === 'cylinder';
+                const isCylinderShell = currentChargeType === 'cylinderShell';
+                
+                // 控制主要参数面板的显示
+                document.getElementById('pointSphereControls').style.display = isPointSphere ? 'block' : 'none';
+                document.getElementById('sphereShellControls').style.display = isSphereShell ? 'block' : 'none';
+                document.getElementById('cylinderControls').style.display = isCylinder ? 'block' : 'none';
+                document.getElementById('cylinderShellControls').style.display = isCylinderShell ? 'block' : 'none';
+                document.getElementById('planeControls').style.display = currentChargeType === 'plane' ? 'block' : 'none';
+                
+                // 修改：点电荷模式下隐藏球体半径调节
+                const sphereRadiusControl = document.getElementById('sphereRadiusControl');
+                if (sphereRadiusControl) {
+                    sphereRadiusControl.style.display = isPoint ? 'none' : (isSphere ? 'block' : 'none');
+                }
+                
+                // 更新标签文字
+                const radiusLabel = document.getElementById('radiusLabel');
+                if (radiusLabel) {
+                    if (currentChargeType === 'point') {
+                        // 点电荷模式下不显示半径标签
+                    } else if (currentChargeType === 'sphere') {
+                        radiusLabel.textContent = '球体半径 R (m)';
+                    }
+                }
+                
+                updateChargeObject();
+                updateFieldLines();
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            // 点电荷/球体参数
+            document.getElementById('QSlider').addEventListener('input', function(e) {
+                const rawValue = parseFloat(e.target.value);
+                params.pointSphere.Q = rawValue * 1e-9;
+                
+                // 更新滑块颜色和数值显示
+                updateSliderStyle('QSlider', rawValue, 'QIndicator');
+                updateValueDisplay('QValue', rawValue);
+                
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            document.getElementById('RSlider').addEventListener('input', function(e) {
+                params.pointSphere.R = parseFloat(e.target.value);
+                document.getElementById('RValue').textContent = e.target.value;
+                updateChargeObject();
+                updateFieldLines();
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            document.getElementById('gaussSphereSlider').addEventListener('input', function(e) {
+                params.pointSphere.gaussR = parseFloat(e.target.value);
+                document.getElementById('gaussSphereValue').textContent = e.target.value;
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            // 球壳参数
+            document.getElementById('QShellSlider').addEventListener('input', function(e) {
+                const rawValue = parseFloat(e.target.value);
+                params.sphereShell.Q = rawValue * 1e-9;
+                
+                updateSliderStyle('QShellSlider', rawValue, 'QShellIndicator');
+                updateValueDisplay('QShellValue', rawValue);
+                
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            document.getElementById('sphereShellRSlider').addEventListener('input', function(e) {
+                params.sphereShell.R = parseFloat(e.target.value);
+                document.getElementById('sphereShellRValue').textContent = e.target.value;
+                updateChargeObject();
+                updateFieldLines();
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            document.getElementById('gaussSphereShellSlider').addEventListener('input', function(e) {
+                params.sphereShell.gaussR = parseFloat(e.target.value);
+                document.getElementById('gaussSphereShellValue').textContent = e.target.value;
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            // 圆柱体参数
+            document.getElementById('lambdaSlider').addEventListener('input', function(e) {
+                const rawValue = parseFloat(e.target.value);
+                params.cylinder.lambda = rawValue * 1e-9;
+                
+                updateSliderStyle('lambdaSlider', rawValue, 'lambdaIndicator');
+                updateValueDisplay('lambdaValue', rawValue);
+                
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            document.getElementById('cylinderRSlider').addEventListener('input', function(e) {
+                params.cylinder.R = parseFloat(e.target.value);
+                document.getElementById('cylinderRValue').textContent = e.target.value;
+                updateChargeObject();
+                updateFieldLines();
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            document.getElementById('gaussCylinderSlider').addEventListener('input', function(e) {
+                params.cylinder.gaussR = parseFloat(e.target.value);
+                document.getElementById('gaussCylinderValue').textContent = e.target.value;
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            // 圆柱壳参数
+            document.getElementById('lambdaShellSlider').addEventListener('input', function(e) {
+                const rawValue = parseFloat(e.target.value);
+                params.cylinderShell.lambda = rawValue * 1e-9;
+                
+                updateSliderStyle('lambdaShellSlider', rawValue, 'lambdaShellIndicator');
+                updateValueDisplay('lambdaShellValue', rawValue);
+                
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            document.getElementById('cylinderShellRSlider').addEventListener('input', function(e) {
+                params.cylinderShell.R = parseFloat(e.target.value);
+                document.getElementById('cylinderShellRValue').textContent = e.target.value;
+                updateChargeObject();
+                updateFieldLines();
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            document.getElementById('gaussCylinderShellSlider').addEventListener('input', function(e) {
+                params.cylinderShell.gaussR = parseFloat(e.target.value);
+                document.getElementById('gaussCylinderShellValue').textContent = e.target.value;
+                updateGaussianSurface();
+                updatePhysicsData();
+            });
+
+            // 平面参数
+            document.getElementById('sigmaSlider').addEventListener('input', function(e) {
+                const rawValue = parseFloat(e.target.value);
+                params.plane.sigma = rawValue * 1e-9;
+                
+                updateSliderStyle('sigmaSlider', rawValue, 'sigmaIndicator');
+                updateValueDisplay('sigmaValue', rawValue);
+                
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            document.getElementById('planeSizeSlider').addEventListener('input', function(e) {
+                params.plane.size = parseFloat(e.target.value);
+                document.getElementById('planeSizeValue').textContent = e.target.value;
+                updateChargeObject();
+                updateFieldLines();
+                updatePhysicsData();
+            });
+
+            // 控制按钮
+            document.getElementById('resetView').addEventListener('click', function() {
+                controls.reset();
+                camera.position.set(6, 4, 6);
+            });
+            
+            document.getElementById('toggleFieldLines').addEventListener('click', function() {
+                showFieldLines = !showFieldLines;
+                document.getElementById('fieldLineStatus').textContent = showFieldLines ? '显示' : '隐藏';
+                updateFieldLines();
+            });
+            
+            document.getElementById('toggleGaussian').addEventListener('click', function() {
+                showGaussian = !showGaussian;
+                document.getElementById('gaussianStatus').textContent = showGaussian ? '显示' : '隐藏';
+                updateGaussianSurface();
+            });
+
+            window.addEventListener('resize', function() {
+                const container = document.getElementById('canvas-container');
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        // ========== 初始化 ==========
+        function init() {
+            initThreeJS();
+            initEventListeners();
+            
+            // 初始更新滑块样式
+            updateSliderStyle('QSlider', 1, 'QIndicator');
+            updateSliderStyle('QShellSlider', 1, 'QShellIndicator');
+            updateSliderStyle('lambdaSlider', 1, 'lambdaIndicator');
+            updateSliderStyle('lambdaShellSlider', 1, 'lambdaShellIndicator');
+            updateSliderStyle('sigmaSlider', 1, 'sigmaIndicator');
+            
+            // 初始隐藏球体半径控制（默认为点电荷）
+            const sphereRadiusControl = document.getElementById('sphereRadiusControl');
+            if (sphereRadiusControl) {
+                sphereRadiusControl.style.display = 'none';
+            }
+            
+            updatePhysicsData();
+            document.getElementById('pointSphereControls').style.display = 'block';
+        }
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
